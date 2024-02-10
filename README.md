@@ -1,3 +1,4 @@
+StegCloak fork optimized specifically for node.js usage. 
 <h1 align="center">
   <br>
   <img src="assets/stegCloakIcon.svg" alt="StegCloak" width="100">
