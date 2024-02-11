@@ -62,7 +62,7 @@ class StegCloak {
 
     const payload = crypt
       ? encrypt({
-        password: password,
+        password,
         data: secret,
         integrity
       })
