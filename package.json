@@ -44,10 +44,10 @@
   ],
   "dependencies": {
     "lzutf8": "^0.6.3",
-    "rambda": "^9.1.0"
+    "rambda": "^9.2.1"
   },
   "devDependencies": {
-    "esbuild": "^0.20.0",
+    "esbuild": "^0.23.0",
     "standard": "^17.1.0"
   },
   "standard": {
