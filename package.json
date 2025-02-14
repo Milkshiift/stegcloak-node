@@ -14,8 +14,8 @@
     "node": ">=8.0.0"
   },
   "scripts": {
-    "build": "node build.js",
-    "test": "node test.js"
+    "build": "bun build.js",
+    "test": "bun build.js && node test.js"
   },
   "author": "KuroLabs",
   "license": "MIT",
@@ -44,11 +44,10 @@
   ],
   "dependencies": {
     "lzutf8": "^0.6.3",
-    "rambda": "^9.2.1"
+    "rambda": "^9.4.2"
   },
   "devDependencies": {
-    "esbuild": "^0.23.0",
-    "standard": "^17.1.0"
+    "standard": "^17.1.2"
   },
   "standard": {
     "ignore": [
