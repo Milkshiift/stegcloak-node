@@ -9,7 +9,7 @@
     "steganography-algorithms"
   ],
   "version": "1.1.1",
-  "main": "stegcloak.js",
+  "main": "src/stegcloak.js",
   "engines": {
     "node": ">=8.0.0"
   },

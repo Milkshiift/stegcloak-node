@@ -3,7 +3,7 @@ await Bun.build({
     sourcemap: "none",
     format: "esm",
     target: "node",
-    entrypoints: ['stegcloak.js'],
+    entrypoints: ['./src/stegcloak.js'],
     outdir: "dist",
     packages: "bundle",
 });
