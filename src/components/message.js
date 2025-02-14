@@ -1,6 +1,6 @@
 'use strict'
 
-const {
+import {
   intersection,
   indexOf,
   curry,
@@ -8,9 +8,9 @@ const {
   split,
   join,
   map
-} = require('rambda')
+} from 'rambda'
 
-const { zeroPad, nTobin, stepMap, binToByte } = require('./util.js')
+import { zeroPad, nTobin, stepMap, binToByte } from './util.js'
 
 const zwcOperations = (zwc) => {
   // Map binary to ZWC
@@ -113,7 +113,7 @@ const embed = (cover, secret) => {
   return [...firstPart, secret + arr[targetIndex + 1], ...secondPart].join(' ')
 }
 
-module.exports = {
+export {
   zwcOperations,
   embed
 }

@@ -1,22 +1,27 @@
 'use strict'
 
-const R = require('rambda')
+import { pipe } from 'rambda'
 
-const {
+import {
   encrypt,
   decrypt
-} = require('./components/encrypt')
+} from './components/encrypt.js'
 
-const {
+import {
   compress,
   decompress,
   zwcHuffMan
-} = require('./components/compact')
+} from './components/compact.js'
 
-const {
+import {
   zwcOperations,
   embed
-} = require('./components/message')
+} from './components/message.js'
+
+import {
+  byteToBin,
+  compliment
+} from './components/util.js'
 
 const zwc = ['‌', '‍', '⁡', '⁢', '⁣', '⁤'] // 200c,200d,2061,2062,2063,2064 Where the magic happens !
 
@@ -32,11 +37,6 @@ const {
   shrink,
   expand
 } = zwcHuffMan(zwc)
-
-const {
-  byteToBin,
-  compliment
-} = require('./components/util')
 
 class StegCloak {
   constructor (_encrypt = true, _integrity = false) {
@@ -58,7 +58,7 @@ class StegCloak {
 
     const crypt = this.encrypt
 
-    const secret = R.pipe(compress, compliment)(message) // Compress and compliment to prepare the secret
+    const secret = pipe(compress, compliment)(message) // Compress and compliment to prepare the secret
 
     const payload = crypt
       ? encrypt({
@@ -68,7 +68,7 @@ class StegCloak {
       })
       : secret // Encrypt if needed or proxy secret
 
-    const invisibleStream = R.pipe(
+    const invisibleStream = pipe(
       byteToBin,
       integrity && crypt ? toConcealHmac : crypt ? toConceal : noCrypt,
       shrink
@@ -84,7 +84,7 @@ class StegCloak {
       data,
       integrity,
       encrypt
-    } = R.pipe(
+    } = pipe(
       detach,
       expand,
       concealToData
@@ -102,4 +102,4 @@ class StegCloak {
   }
 }
 
-module.exports = StegCloak
+export default StegCloak

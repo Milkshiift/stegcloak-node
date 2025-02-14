@@ -1,12 +1,9 @@
 'use strict'
 
-const crypto = require('crypto')
-const { createCipheriv, createDecipheriv } = crypto
-const randomBytes = crypto.randomBytes
-const pbkdf2Sync = crypto.pbkdf2Sync
-const createHmac = crypto.createHmac
-const timeSafeCheck = crypto.timingSafeEqual
-const { toBuffer, concatBuff, buffSlice } = require('./util.js')
+import crypto from 'crypto'
+const { createCipheriv, createDecipheriv, randomBytes, pbkdf2Sync, createHmac, timingSafeEqual } = crypto
+
+import { toBuffer, concatBuff, buffSlice } from './util.js'
 
 // Key generation from a password
 
@@ -37,7 +34,7 @@ const decrypt = (config) => {
   ])
   if (config.integrity) {
     const vHmac = createHmac('sha256', key).update(decrypted).digest()
-    if (!timeSafeCheck(hmacData, vHmac)) {
+    if (!timingSafeEqual(hmacData, vHmac)) {
       throw new Error(
         'Wrong password or Wrong payload (Hmac Integrity failure) '
       )
@@ -69,7 +66,7 @@ const _extract = (mode, config, salt) => {
   return output
 }
 
-module.exports = {
+export {
   encrypt,
   decrypt
 }

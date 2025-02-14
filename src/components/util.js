@@ -1,6 +1,6 @@
 'use strict'
 
-const {
+import {
   map,
   join,
   pipe,
@@ -10,7 +10,7 @@ const {
   dropLast,
   isEmpty,
   takeLast
-} = require('rambda')
+} from 'rambda'
 
 // Compliment an array
 const _not = (x) => ~x
@@ -82,7 +82,7 @@ const binToByte = (str) => {
   return new Uint8Array(arr)
 }
 
-module.exports = {
+export {
   toBuffer,
   byarr,
   compliment,

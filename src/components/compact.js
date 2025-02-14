@@ -1,10 +1,8 @@
 'use strict'
 
-const { sort, difference } = require('rambda')
-
-const { recursiveReplace } = require('./util')
-
-const lzutf8 = require('lzutf8')
+import { sort, difference } from 'rambda'
+import { recursiveReplace } from './util.js'
+import lzutf8 from 'lzutf8'
 
 const compress = (x) =>
   lzutf8.compress(x, {
@@ -105,7 +103,7 @@ const zwcHuffMan = (zwc) => {
   }
 }
 
-module.exports = {
+export {
   compress,
   decompress,
   zwcHuffMan
