@@ -1,4 +1,4 @@
-import StegCloak from "./dist/stegcloak.js";
+import StegCloak from "./src/stegcloak.js";
 
 const stegcloak = new StegCloak(true, false)
 
@@ -10,7 +10,7 @@ const decrypted = stegcloak.reveal(prevEncrypted, 'password');
 console.log(`Decryption test: ${decrypted === 'Hello World' ? 'passed ✅' : 'failed ❌'}`);
 
 console.log("Ecryption test:")
-const prevLength = 95;
-const encrypted = stegcloak.hide('Hello World', 'password', 'This is a confidential text');
+const encrypted = stegcloak.hide('Lorem ipsum odor amet, consectetuer adipiscing elit.', 'password', 'This is a confidential text');
 console.log(encrypted);
-console.log("Old length:", prevLength, "New length:", encrypted.length);
+console.log("Length:", encrypted.length);
+console.log(stegcloak.reveal(encrypted, 'password'));

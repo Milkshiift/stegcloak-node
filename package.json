@@ -16,7 +16,7 @@
   },
   "scripts": {
     "build": "bun build.js",
-    "test": "bun build.js && node test.js"
+    "test": "node test.js"
   },
   "author": "KuroLabs",
   "license": "MIT",

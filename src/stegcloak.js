@@ -49,7 +49,7 @@ class StegCloak {
     return zwc
   }
 
-  hide (message, password, cover = 'This is a confidential text') {
+  hide(message, password, cover = 'This is a confidential text') {
     if (cover.split(' ').length === 1) {
       throw new Error('Minimum two words required')
     }
@@ -61,23 +61,23 @@ class StegCloak {
     const secret = pipe(compress, compliment)(message) // Compress and compliment to prepare the secret
 
     const payload = crypt
-      ? encrypt({
-        password,
-        data: secret,
-        integrity
-      })
-      : secret // Encrypt if needed or proxy secret
+        ? encrypt({
+          password,
+          data: secret,
+          integrity
+        })
+        : secret // Encrypt if needed or proxy secret
 
     const invisibleStream = pipe(
-      byteToBin,
-      integrity && crypt ? toConcealHmac : crypt ? toConceal : noCrypt,
-      shrink
+        byteToBin,
+        integrity && crypt ? toConcealHmac : crypt ? toConceal : noCrypt,
+        shrink
     )(payload) // Create an optimal invisible stream of secret
 
     return embed(cover, invisibleStream) // Embed stream  with cover text
   }
 
-  reveal (secret, password) {
+  reveal(secret, password) {
     // Detach invisible characters and convert back to visible characters and also returns analysis of if encryption or integrity check was done
 
     const {
@@ -85,18 +85,18 @@ class StegCloak {
       integrity,
       encrypt
     } = pipe(
-      detach,
-      expand,
-      concealToData
+        detach,
+        expand,
+        concealToData
     )(secret)
 
     const decryptStream = encrypt
-      ? decrypt({
-        password,
-        data,
-        integrity
-      })
-      : data // Decrypt if needed or proxy secret
+        ? decrypt({
+          password,
+          data,
+          integrity
+        })
+        : data // Decrypt if needed or proxy secret
 
     return decompress(compliment(decryptStream)) // Receive the secret
   }

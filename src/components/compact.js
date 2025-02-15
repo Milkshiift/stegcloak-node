@@ -2,17 +2,40 @@
 
 import { sort, difference } from 'rambda'
 import { recursiveReplace } from './util.js'
+import zlib from "node:zlib";
 import lzutf8 from 'lzutf8'
 
-const compress = (x) =>
-  lzutf8.compress(x, {
-    outputEncoding: 'Buffer'
-  })
+// Discord has a limit of 2000 characters
+// In an encrypted message, you can fit:
+// ~677 chars max with lzutf
+// ~1086 chars max with brotli
+// 60% improvement with brotli
+const compress = (x) => {
+  const start = performance.now();
+  const compressed = zlib.brotliCompressSync(x, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } });
+  // const compressed = lzutf8.compress(x, {
+  //   outputEncoding: 'Buffer'
+  // })
+  const end = performance.now();
+  console.log(`Compression took ${end - start} milliseconds.`);
+  return compressed;
+}
 
-const decompress = (x) => lzutf8.decompress(x, {
-  inputEncoding: 'Buffer',
-  outputEncoding: 'String'
-})
+const decompress = (x) => {
+  const start = performance.now();
+  let decompressed;
+  try {
+    decompressed = zlib.brotliDecompressSync(x).toString();
+  } catch (err) {
+    decompressed = lzutf8.decompress(x, {
+      inputEncoding: 'Buffer',
+      outputEncoding: 'String'
+    });
+  }
+  const end = performance.now();
+  console.log(`Decompression took ${end - start} milliseconds.`);
+  return decompressed;
+}
 
 // Builds a ranking table and filters the two characters that can be compressed that yield good results
 
