@@ -11,18 +11,18 @@ import lzutf8 from 'lzutf8'
 // ~1086 chars max with brotli
 // 60% improvement with brotli
 const compress = (x) => {
-  const start = performance.now();
+  //const start = performance.now();
   const compressed = zlib.brotliCompressSync(x, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } });
   // const compressed = lzutf8.compress(x, {
   //   outputEncoding: 'Buffer'
   // })
-  const end = performance.now();
-  console.log(`Compression took ${end - start} milliseconds.`);
+  //const end = performance.now();
+  //console.log(`Compression took ${end - start} milliseconds.`);
   return compressed;
 }
 
 const decompress = (x) => {
-  const start = performance.now();
+  //const start = performance.now();
   let decompressed;
   try {
     decompressed = zlib.brotliDecompressSync(x).toString();
@@ -32,8 +32,8 @@ const decompress = (x) => {
       outputEncoding: 'String'
     });
   }
-  const end = performance.now();
-  console.log(`Decompression took ${end - start} milliseconds.`);
+  //const end = performance.now();
+  //console.log(`Decompression took ${end - start} milliseconds.`);
   return decompressed;
 }
 
