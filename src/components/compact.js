@@ -27,6 +27,7 @@ const decompress = (x) => {
   try {
     decompressed = zlib.brotliDecompressSync(x).toString();
   } catch (err) {
+    // Previous version of the code used lzutf8 for compression, hence the fallback
     decompressed = lzutf8.decompress(x, {
       inputEncoding: 'Buffer',
       outputEncoding: 'String'

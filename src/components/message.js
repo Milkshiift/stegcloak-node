@@ -11,6 +11,7 @@ import {
 } from 'rambda'
 
 import { zeroPad, nTobin, stepMap, binToByte } from './util.js'
+import crypto from 'node:crypto';
 
 const zwcOperations = (zwc) => {
   // Map binary to ZWC
@@ -106,12 +107,12 @@ const zwcOperations = (zwc) => {
 // Embed invisble stream to cover text
 
 const embed = (cover, secret) => {
-  const arr = cover.split(' ')
-  const targetIndex = Math.floor(Math.random() * Math.floor(arr.length / 2))
-  const firstPart = arr.slice(0, targetIndex + 1)
-  const secondPart = arr.slice(targetIndex + 2, arr.length)
-  return [...firstPart, secret + arr[targetIndex + 1], ...secondPart].join(' ')
-}
+  const arr = cover.split(' ');
+  const targetIndex = crypto.randomInt(0, Math.floor(arr.length / 2));
+  const firstPart = arr.slice(0, targetIndex + 1);
+  const secondPart = arr.slice(targetIndex + 2, arr.length);
+  return [...firstPart, secret + arr[targetIndex + 1], ...secondPart].join(' ');
+};
 
 export {
   zwcOperations,
