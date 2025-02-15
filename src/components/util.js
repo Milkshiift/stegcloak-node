@@ -45,22 +45,6 @@ const stepMap = curry((callback, step, array) => {
     .filter((d, i) => i % step === 0)
 })
 
-// Pure recursive regular expression replace
-
-const recursiveReplace = (data, patternArray, replaceArray) => {
-  if (isEmpty(patternArray) && isEmpty(replaceArray)) {
-    return data
-  }
-  const [pattern] = takeLast(1, patternArray)
-  const [replaceTo] = takeLast(1, replaceArray)
-  data = data.replace(new RegExp(pattern, 'g'), replaceTo)
-  return recursiveReplace(
-    data,
-    dropLast(1, patternArray),
-    dropLast(1, replaceArray)
-  )
-}
-
 // Pad with zeroes to get required length
 const zeroPad = curry((x, num) => {
   let zero = ''
@@ -82,6 +66,16 @@ const binToByte = (str) => {
   return new Uint8Array(arr)
 }
 
+const iterativeReplace = (data, patternArray, replaceArray) => {
+  let currentData = data;
+  const regexes = patternArray.map(pattern => new RegExp(pattern, 'g')); // Pre-compile regexes
+
+  for (let i = patternArray.length - 1; i >= 0; i--) {
+    currentData = currentData.replace(regexes[i], replaceArray[i]);
+  }
+  return currentData;
+};
+
 export {
   toBuffer,
   byarr,
@@ -93,5 +87,5 @@ export {
   concatBuff,
   buffSlice,
   stepMap,
-  recursiveReplace
+  iterativeReplace
 }

@@ -1,7 +1,6 @@
 'use strict'
 
-import { sort, difference } from 'rambda'
-import { recursiveReplace } from './util.js'
+import { iterativeReplace } from './util.js'
 import zlib from "node:zlib";
 import lzutf8 from 'lzutf8'
 
@@ -41,46 +40,45 @@ const decompress = (x) => {
 // Builds a ranking table and filters the two characters that can be compressed that yield good results
 
 const findOptimal = (secret, characters) => {
-  const dict = characters.reduce((acc, data) => {
-    acc[data] = {}
-    return acc
-  }, {})
-  const size = secret.length
+  const dict = new Map(characters.map(char => [char, new Map()]));
+  const size = secret.length;
+
   for (let j = 0; j < size; j++) {
-    let count = 1
-    while (j < size && secret[j] === secret[j + 1]) {
-      count++
-      j++
+    let count = 1;
+    while (j + 1 < size && secret[j] === secret[j + 1]) {
+      count++;
+      j++;
     }
+
     if (count >= 2) {
-      let itr = count
-      while (itr >= 2) {
-        dict[secret[j]][itr] =
-          (dict[secret[j]][itr] || 0) + Math.floor(count / itr) * (itr - 1)
-        itr--
+      const charMap = dict.get(secret[j]);
+      for (let itr = count; itr >= 2; itr--) {
+        const existingValue = charMap.get(itr) || 0;
+        charMap.set(itr, existingValue + Math.floor(count / itr) * (itr - 1));
       }
     }
   }
-  const getOptimal = []
-  for (const key in dict) {
-    for (const count in dict[key]) {
-      getOptimal.push([key + count, dict[key][count]])
+
+  const getOptimal = [];
+  for (const [key, innerMap] of dict) {
+    for (const [count, value] of innerMap) {
+      getOptimal.push([key + count, value]);
     }
   }
-  const rankedTable = sort((a, b) => b[1] - a[1], getOptimal)
+
+  const rankedTable = getOptimal.sort((a, b) => b[1] - a[1]);
 
   let reqZwc = rankedTable
     .filter((val) => val[0][1] === '2')
     .slice(0, 2)
-    .map((chars) => chars[0][0])
+    .map((chars) => chars[0][0]);
 
-  if (reqZwc.length !== 2) {
+    if (reqZwc.length !== 2) {
     reqZwc = reqZwc.concat(
-      difference(characters, reqZwc).slice(0, 2 - reqZwc.length)
-    )
+      characters.filter(char => !reqZwc.includes(char)).slice(0, 2 - reqZwc.length)
+    );
   }
-
-  return reqZwc.slice().sort()
+  return reqZwc.sort();
 }
 
 const zwcHuffMan = (zwc) => {
@@ -102,7 +100,7 @@ const zwcHuffMan = (zwc) => {
     const repeatChars = findOptimal(secret, zwc.slice(0, 4))
     return (
       _getCompressFlag(...repeatChars) +
-      recursiveReplace(
+      iterativeReplace(
         secret,
         repeatChars.map((x) => x + x),
         [zwc[4], zwc[5]]
@@ -114,7 +112,7 @@ const zwcHuffMan = (zwc) => {
     const flag = secret[0]
     const invisibleStream = secret.slice(1)
     const repeatChars = _extractCompressFlag(flag)
-    return recursiveReplace(
+    return iterativeReplace(
       invisibleStream,
       [zwc[4], zwc[5]],
       repeatChars.map((x) => x + x)
