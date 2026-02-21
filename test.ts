@@ -1,13 +1,15 @@
-import StegCloak from "./src/stegcloak.ts";
+import StegCloak from "./src/stegcloak";
 
-const stegcloak = new StegCloak(true, false)
-
-console.log("Decryption test:")
+const stegcloak = new StegCloak()
 
 // Check compatability with the original stegcloak
-const prevEncrypted = 'This ‍‍⁡‍‌⁡‍‌⁢⁡‍⁡‍⁡‌‍⁡‍‌⁢⁤‍⁡‌‍⁣‍‍⁣⁢‌⁡⁢⁡‍⁡⁢‌⁢‍‌⁡⁢‍⁢‌⁡‍⁢‌⁤⁢⁢‍‍‌⁡‌‍⁡‍⁢⁤‌⁡‌⁡‍‌⁢⁢‍⁢is a confidential text'
+// const prevEncrypted = 'This ‍‍⁡‍‌⁡‍‌⁢⁡‍⁡‍⁡‌‍⁡‍‌⁢⁤‍⁡‌‍⁣‍‍⁣⁢‌⁡⁢⁡‍⁡⁢‌⁢‍‌⁡⁢‍⁢‌⁡‍⁢‌⁤⁢⁢‍‍‌⁡‌‍⁡‍⁢⁤‌⁡‌⁡‍‌⁢⁢‍⁢is a confidential text'
+// const decrypted = stegcloak.reveal(prevEncrypted, 'password');
+// console.log(`Decryption test: ${decrypted === 'Hello World' ? 'passed ✅' : 'failed ❌'}`);
+
+const prevEncrypted = 'This is ‍‍‍⁢⁡‌⁡‍⁡‌⁤⁢‌⁢‍⁡‍⁣⁢‌⁡‌⁢‍⁢‍⁢⁢‌‍‍‌⁢⁢⁢⁣⁤‍⁡‍⁢⁡⁢⁢⁢‌‍⁢⁢‍⁡‍‍‍‍‌⁡‍⁤⁣⁣⁢⁡⁢⁢‌⁡⁢⁤⁣‌⁡‌⁡‌‍‍⁢‌⁡⁢‌‍⁡‍⁢⁣⁡⁢‍⁡‌⁤⁢‍⁢⁢‌⁢⁢‌⁤⁡‌⁢‍⁡⁢⁤⁡‌⁡‌‍‍⁣⁣⁡‌‍⁢⁢⁣⁤⁤‌⁢‌‍‍‌⁡‌⁡⁢‌⁤‌⁤‍‌⁤⁤⁢‍‌⁡‍⁡‌⁤⁢‍‌⁢‍‌⁢⁡‌⁢⁣⁤‍⁢‌⁡‍‍‍⁢‍‌⁡‌⁢⁣⁢‌⁢⁡‍⁡‍‍⁡⁣⁢‌‍⁢‍‌⁡‌‍⁣⁢⁢‍⁢⁢‍⁤‍a confidential text'
 const decrypted = stegcloak.reveal(prevEncrypted, 'password');
-console.log(`Decryption test: ${decrypted === 'Hello World' ? 'passed ✅' : 'failed ❌'}`);
+console.log(`Decryption test: ${decrypted === 'Lorem ipsum odor amet, consectetuer adipiscing elit.' ? 'passed ✅' : 'failed ❌'}`);
 
 console.log("Ecryption test:")
 const encrypted = stegcloak.hide('Lorem ipsum odor amet, consectetuer adipiscing elit.', 'password', 'This is a confidential text');

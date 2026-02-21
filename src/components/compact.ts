@@ -1,101 +1,208 @@
 import zlib from 'node:zlib';
 import { iterativeReplace } from './util';
 
-// You can fit around ~1086 chars with brotli in an encrypted message
-export const compress = (x: string | Buffer): Buffer => {
-  return zlib.brotliCompressSync(x, {
-    params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 }
-  });
+const BROTLI_COMPRESS_OPTIONS: zlib.BrotliOptions = Object.freeze({
+  params: {
+    [zlib.constants.BROTLI_PARAM_QUALITY]: zlib.constants.BROTLI_MAX_QUALITY
+  }
+});
+
+export const compress = (data: string | Buffer): Buffer => {
+  if ((typeof data === 'string' && data.length === 0) ||
+      (Buffer.isBuffer(data) && data.length === 0)) {
+    throw new Error('Cannot compress empty data');
+  }
+  return zlib.brotliCompressSync(data, BROTLI_COMPRESS_OPTIONS);
 };
 
-export const decompress = (x: Buffer | Uint8Array): string => {
-  return zlib.brotliDecompressSync(x).toString('utf8');
+export const decompress = (data: Buffer | Uint8Array): string => {
+  if (data.length === 0) {
+    throw new Error('Cannot decompress empty data');
+  }
+
+  try {
+    const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+    return zlib.brotliDecompressSync(buffer).toString('utf8');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Decompression failed: ${message}`);
+  }
 };
 
-// Builds a ranking table and filters the two characters that can be compressed that yield good results
-export const findOptimal = (secret: string, characters: string[]): string[] => {
-  const dict = new Map<string, Map<number, number>>(characters.map(char => [char, new Map()]));
-  const size = secret.length;
+// Run-Length Optimization
 
-  for (let j = 0; j < size; j++) {
-    let count = 1;
-    while (j + 1 < size && secret.charAt(j) === secret.charAt(j + 1)) {
-      count++;
-      j++;
+/**
+ * Analyze text to find optimal characters for run-length compression
+ * Returns two characters that have the most consecutive pair occurrences
+ */
+export const findOptimal = (secret: string, characters: readonly string[]): string[] => {
+  if (characters.length < 2) {
+    throw new Error('Need at least 2 characters to find optimal pair');
+  }
+
+  if (secret.length < 2) {
+    return [characters[0]!, characters[1]!].sort();
+  }
+
+  const runStats = new Map<string, Map<number, number>>();
+  const charSet = new Set(characters);
+
+  for (const char of characters) {
+    runStats.set(char, new Map());
+  }
+
+  const len = secret.length;
+  let i = 0;
+
+  while (i < len) {
+    const char = secret.charAt(i);
+
+    if (!charSet.has(char)) {
+      i++;
+      continue;
     }
 
-    if (count >= 2) {
-      const charMap = dict.get(secret.charAt(j));
+    let runLength = 1;
+    while (i + runLength < len && secret.charAt(i + runLength) === char) {
+      runLength++;
+    }
+
+    if (runLength >= 2) {
+      const charMap = runStats.get(char);
       if (charMap) {
-        for (let itr = count; itr >= 2; itr--) {
-          const existingValue = charMap.get(itr) || 0;
-          charMap.set(itr, existingValue + Math.floor(count / itr) * (itr - 1));
+        for (let groupSize = 2; groupSize <= runLength; groupSize++) {
+          const numGroups = Math.floor(runLength / groupSize);
+          const savings = numGroups * (groupSize - 1);
+          const current = charMap.get(groupSize) ?? 0;
+          charMap.set(groupSize, current + savings);
         }
+      }
+    }
+
+    i += runLength;
+  }
+
+  const rankings: Array<[string, number]> = [];
+  for (const [char, innerMap] of runStats) {
+    for (const [runLength, savings] of innerMap) {
+      rankings.push([`${char}${runLength}`, savings]);
+    }
+  }
+
+  rankings.sort((a, b) => b[1] - a[1]);
+
+  const selectedChars = new Set<string>();
+  const result: string[] = [];
+
+  for (const [key] of rankings) {
+    if (key.length >= 2 && key.charAt(key.length - 1) === '2') {
+      const char = key.slice(0, -1);
+      if (!selectedChars.has(char)) {
+        selectedChars.add(char);
+        result.push(char);
+        if (result.length === 2) break;
       }
     }
   }
 
-  const getOptimal: [string, number][] = [];
-  for (const [key, innerMap] of dict) {
-    for (const [count, value] of innerMap) {
-      getOptimal.push([key + count, value]);
+  if (result.length < 2) {
+    for (const char of characters) {
+      if (!selectedChars.has(char)) {
+        result.push(char);
+        if (result.length === 2) break;
+      }
     }
   }
 
-  const rankedTable = getOptimal.sort((a, b) => b[1] - a[1]);
-
-  let reqZwc = rankedTable
-      .filter((val) => val[0].charAt(1) === '2')
-      .slice(0, 2)
-      .map((chars) => chars[0].charAt(0));
-
-  if (reqZwc.length !== 2) {
-    reqZwc = reqZwc.concat(
-        characters.filter(char => !reqZwc.includes(char)).slice(0, 2 - reqZwc.length)
-    );
-  }
-  return reqZwc.sort();
+  return result.sort();
 };
 
-export const zwcHuffMan = (zwc: string[]) => {
-  const [z0, z1, z2, z3, z4, z5] = zwc as [string, string, string, string, string, string];
-  const tableMap = [
-    z0 + z1,
-    z0 + z2,
-    z0 + z3,
-    z1 + z2,
-    z1 + z3,
-    z2 + z3
-  ];
 
-  const _getCompressFlag = (zwc1: string, zwc2: string): string =>
-      zwc[tableMap.indexOf(zwc1 + zwc2)]!; // zwA,zwB => zwD
+// ZWC Huffman Encoding
 
-  const _extractCompressFlag = (zwc1: string): string[] =>
-      tableMap[zwc.indexOf(zwc1)]!.split(''); // zwcD => zwA,zwcB
+/**
+ * Create Huffman-like encoding functions for ZWC character pairs
+ * Uses 2 additional ZWC characters to represent pairs of repeated characters
+ */
+export const zwcHuffMan = (zwc: readonly string[]) => {
+  if (zwc.length < 6) {
+    throw new Error('ZWC array must have at least 6 characters for Huffman encoding');
+  }
 
+  const [z0, z1, z2, z3, z4, z5] = zwc as readonly [string, string, string, string, string, string];
+
+  const pairToFlag = new Map<string, string>([
+    [`${z0}${z1}`, z0],
+    [`${z0}${z2}`, z1],
+    [`${z0}${z3}`, z2],
+    [`${z1}${z2}`, z3],
+    [`${z1}${z3}`, z4],
+    [`${z2}${z3}`, z5]
+  ]);
+
+  const flagToPair = new Map<string, readonly [string, string]>([
+    [z0, [z0, z1]],
+    [z1, [z0, z2]],
+    [z2, [z0, z3]],
+    [z3, [z1, z2]],
+    [z4, [z1, z3]],
+    [z5, [z2, z3]]
+  ]);
+
+  const _getCompressFlag = (zwc1: string, zwc2: string): string => {
+    const flag = pairToFlag.get(`${zwc1}${zwc2}`);
+    if (flag === undefined) {
+      throw new Error(`Invalid ZWC pair for compression: ${zwc1}, ${zwc2}`);
+    }
+    return flag;
+  };
+
+  const _extractCompressFlag = (flag: string): readonly [string, string] => {
+    const pair = flagToPair.get(flag);
+    if (pair === undefined) {
+      throw new Error(`Invalid compression flag: U+${flag.charCodeAt(0).toString(16).toUpperCase()}`);
+    }
+    return pair;
+  };
+
+  /**
+   * Compress consecutive pairs of identical ZWC characters
+   */
   const shrink = (secret: string): string => {
+    if (!secret || secret.length === 0) {
+      throw new Error('Cannot shrink empty string');
+    }
+
     const repeatChars = findOptimal(secret, zwc.slice(0, 4));
-    return (
-        _getCompressFlag(repeatChars[0]!, repeatChars[1]!) +
-        iterativeReplace(
-            secret,
-            repeatChars.map((x) => x + x),
-            [z4, z5]
-        )
+    const flag = _getCompressFlag(repeatChars[0]!, repeatChars[1]!);
+
+    const compressed = iterativeReplace(
+        secret,
+        repeatChars.map(char => char + char),
+        [z4, z5]
     );
+
+    return flag + compressed;
   };
 
+  /**
+   * Expand compressed ZWC string back to original
+   */
   const expand = (secret: string): string => {
+    if (!secret || secret.length === 0) {
+      throw new Error('Cannot expand empty string');
+    }
+
     const flag = secret.charAt(0);
-    const invisibleStream = secret.slice(1);
+    const compressed = secret.slice(1);
     const repeatChars = _extractCompressFlag(flag);
+
     return iterativeReplace(
-        invisibleStream,
+        compressed,
         [z4, z5],
-        repeatChars.map((x) => x + x)
+        [repeatChars[0] + repeatChars[0], repeatChars[1] + repeatChars[1]]
     );
   };
 
-  return { shrink, expand };
+  return Object.freeze({ shrink, expand });
 };

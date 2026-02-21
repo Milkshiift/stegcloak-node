@@ -3,84 +3,145 @@ import { compress, decompress, zwcHuffMan } from './components/compact';
 import { zwcOperations, embed } from './components/message';
 import { byteToBin, compliment } from './components/util';
 
-const zwc = ['‌', '‍', '⁡', '⁢', '⁣', '⁤']; // 200c,200d,2061,2062,2063,2064 Where the magic happens !
+const ZWC_CHARACTERS: readonly string[] = Object.freeze([
+  '\u200C', // Zero-Width Non-Joiner
+  '\u200D', // Zero-Width Joiner
+  '\u2061', // Function Application
+  '\u2062', // Invisible Times
+  '\u2063', // Invisible Separator
+  '\u2064'  // Invisible Plus
+]);
 
-const {
-  toConceal,
-  toConcealHmac,
-  concealToData,
-  noCrypt,
-  detach
-} = zwcOperations(zwc);
+const zwcOps = zwcOperations(ZWC_CHARACTERS);
+const huffman = zwcHuffMan(ZWC_CHARACTERS);
 
-const { shrink, expand } = zwcHuffMan(zwc);
-
+/**
+ * StegCloak - Hide secrets in plain text using zero-width characters
+ *
+ * This class provides methods to hide and reveal secret messages within
+ * ordinary text using invisible Unicode characters. All messages are
+ * encrypted using AES-256-CTR.
+ *
+ * @example
+ * ```typescript
+ * const cloak = new StegCloak();
+ *
+ * // Hide a secret message
+ * const hidden = cloak.hide("secret message", "password123", "Hello World!");
+ * // Result: "Hello ‌‍⁡⁢World!" (invisible characters embedded)
+ *
+ * // Reveal the hidden message
+ * const revealed = cloak.reveal(hidden, "password123");
+ * // Result: "secret message"
+ * ```
+ */
 export class StegCloak {
-  public encrypt: boolean;
-  public integrity: boolean;
-
-  constructor(_encrypt: boolean = true, _integrity: boolean = false) {
-    this.encrypt = _encrypt;
-    this.integrity = _integrity;
+  static get zwc(): readonly string[] {
+    return ZWC_CHARACTERS;
   }
 
-  static get zwc(): string[] {
-    return zwc;
-  }
-
-  hide(message: string, password?: string, cover: string = 'This is a confidential text'): string {
-    if (cover.split(' ').length === 1) {
-      throw new Error('Minimum two words required');
+  /**
+   * Hide a secret message within cover text
+   *
+   * The message is:
+   * 1. Compressed using Brotli
+   * 2. Bit-complemented (simple obfuscation)
+   * 3. Encrypted with AES-256-CTR
+   * 4. Encoded as zero-width characters
+   * 5. Embedded into the cover text
+   *
+   * @param message - The secret message to hide (must not be empty)
+   * @param password - Encryption password (if omitted, uses empty password)
+   * @param cover - Cover text to embed the secret in
+   *                Must contain at least 2 space-separated words
+   *                Default: "This is a confidential text"
+   * @returns Cover text with hidden message embedded
+   *
+   * @throws {Error} If message is empty
+   * @throws {Error} If cover text has fewer than 2 words
+   */
+  hide(
+      message: string,
+      password?: string,
+      cover: string = 'This is a confidential text'
+  ): string {
+    if (!message || message.length === 0) {
+      throw new Error('Message cannot be empty');
     }
 
+    const wordCount = cover.split(' ').length;
+    if (wordCount < 2) {
+      throw new Error('Cover text must have at least two words');
+    }
+
+    // Step 1: Compress the message
     const compressed = compress(message);
-    const secret = compliment(compressed); // Compress and compliment to prepare the secret
 
-    const payload = this.encrypt
-        ? encrypt({
-          password,
-          data: secret,
-          integrity: this.integrity
-        })
-        : secret; // Encrypt if needed or proxy secret
+    // Step 2: Apply bitwise complement (simple obfuscation layer)
+    const complemented = compliment(compressed);
 
-    // Create an optimal invisible stream of secret
-    const binString = byteToBin(payload);
+    // Step 3: Encrypt with AES-256-CTR
+    const payload = encrypt({
+      password,
+      data: complemented
+    });
 
-    let streamFlagged: string;
-    if (this.integrity && this.encrypt) {
-      streamFlagged = toConcealHmac(binString);
-    } else if (this.encrypt) {
-      streamFlagged = toConceal(binString);
-    } else {
-      streamFlagged = noCrypt(binString);
-    }
+    // Step 4: Convert to binary string
+    const binaryString = byteToBin(payload);
 
-    const invisibleStream = shrink(streamFlagged);
+    // Step 5: Encode as ZWC
+    const flaggedStream = zwcOps.toConceal(binaryString);
 
-    return embed(cover, invisibleStream); // Embed stream with cover text
+    // Step 6: Apply run-length compression to ZWC stream
+    const compressedStream = huffman.shrink(flaggedStream);
+
+    // Step 7: Embed in cover text
+    return embed(cover, compressedStream);
   }
 
+  /**
+   * Reveal a hidden message from text
+   *
+   * Reverses the hide() process:
+   * 1. Extract zero-width characters from text
+   * 2. Decompress run-length encoding
+   * 3. Decode ZWC to binary
+   * 4. Decrypt with AES-256-CTR
+   * 5. Reverse bit-complement
+   * 6. Decompress with Brotli
+   *
+   * @param secret - Text containing hidden message
+   * @param password - Decryption password
+   * @returns The revealed secret message
+   *
+   * @throws {Error} If no hidden message is found
+   * @throws {Error} If decryption fails (wrong password or corrupted data)
+   */
   reveal(secret: string, password?: string): string {
-    // Detach invisible characters and convert back to visible characters
-    // and also returns analysis of if encryption or integrity check was done
+    if (!secret || secret.length === 0) {
+      throw new Error('Input cannot be empty');
+    }
 
-    const detached = detach(secret);
-    const expanded = expand(detached);
+    // Step 1: Extract hidden ZWC characters
+    const detached = zwcOps.detach(secret);
 
-    const { data, integrity, encrypt: isEncrypted } = concealToData(expanded);
+    // Step 2: Expand run-length encoding
+    const expanded = huffman.expand(detached);
 
-    const decryptStream = isEncrypted
-        ? decrypt({
-          password,
-          data,
-          integrity
-        })
-        : data; // Decrypt if needed or proxy secret
+    // Step 3: Decode ZWC to binary data
+    const { data } = zwcOps.concealToData(expanded);
 
-    const uncomplimented = compliment(decryptStream);
+    // Step 4: Decrypt
+    const decrypted = decrypt({
+      password,
+      data
+    });
 
-    return decompress(uncomplimented); // Receive the secret
+    // Step 5: Reverse bit-complement
+    const uncomplemented = compliment(decrypted);
+
+    // Step 6: Decompress and return
+    return decompress(uncomplemented);
   }
 }
 

@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "build": "bun build.ts",
-    "test": "node test.ts"
+    "test": "bun test.ts"
   },
   "license": "MIT",
   "devDependencies": {

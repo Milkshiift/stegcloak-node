@@ -1,59 +1,98 @@
-/**
- * Utility functions for Stegcloak
- */
-
-export const buffSlice = (x: Uint8Array | Buffer, y: number, z: number = x.length): Buffer => {
-  return Buffer.from(x.slice(y, z));
+export const buffSlice = (x: Uint8Array | Buffer, start: number, end: number = x.length): Buffer => {
+  if (start < 0 || end > x.length || start > end) {
+    throw new RangeError(`Invalid slice range: [${start}, ${end}] for length ${x.length}`);
+  }
+  return Buffer.from(x.slice(start, end));
 };
 
-export const concatBuff = Buffer.concat;
+export const concatBuff: typeof Buffer.concat = Buffer.concat;
 
 export const toBuffer = (data: Uint8Array | number[]): Buffer => Buffer.from(data);
 
 export const byarr = (x: Buffer | Uint8Array | number[]): Uint8Array => new Uint8Array(x);
 
-export const nTobin = (x: number): string => x.toString(2);
+export const nTobin = (x: number): string => {
+  return (x & 0xFF).toString(2);
+};
 
-// Apply bitwise NOT complement to a byte array efficiently
 export const compliment = (x: Uint8Array | Buffer): Uint8Array => {
-  const arr = new Uint8Array(x.length);
-  for (let i = 0; i < x.length; i++) {
-    arr[i] = ~x[i]!; // Bitwise NOT; implicitly cast to 0-255 in Uint8Array
+  const len = x.length;
+  const arr = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    arr[i] = ~x[i]! & 0xFF;
   }
   return arr;
 };
 
-// Pad with zeroes to get required length
 export const zeroPad = (padLength: number, num: string | number): string => {
-  const str = String(num);
-  if (str.length >= padLength) return str;
-  return '0'.repeat(padLength - str.length) + str;
+  return String(num).padStart(padLength, '0');
 };
 
-// Byte array to Binary String conversion
 export const byteToBin = (arr: Uint8Array | Buffer): string => {
-  let result = '';
-  for (let i = 0; i < arr.length; i++) {
-    result += zeroPad(8, nTobin(arr[i]!));
+  const len = arr.length;
+  const result = new Array<string>(len);
+  for (let i = 0; i < len; i++) {
+    result[i] = (arr[i]! >>> 0).toString(2).padStart(8, '0');
   }
-  return result;
+  return result.join('');
 };
 
-// Binary String to Byte Array conversion
 export const binToByte = (str: string): Uint8Array => {
-  const arr = new Uint8Array(str.length / 8);
-  for (let i = 0; i < str.length; i += 8) {
-    arr[i / 8] = parseInt(str.slice(i, i + 8), 2);
+  const len = str.length;
+  if (len === 0) {
+    return new Uint8Array(0);
+  }
+  if (len % 8 !== 0) {
+    throw new Error(`Binary string length must be divisible by 8, got ${len}`);
+  }
+
+  const byteLen = len >>> 3;
+  const arr = new Uint8Array(byteLen);
+
+  for (let i = 0; i < byteLen; i++) {
+    const offset = i << 3;
+    arr[i] = parseInt(str.slice(offset, offset + 8), 2);
   }
   return arr;
 };
 
-export const iterativeReplace = (data: string, patternArray: string[], replaceArray: string[]): string => {
+const escapeRegExp = (str: string): string => {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+const regexCache = new Map<string, RegExp>();
+
+const getCachedRegex = (pattern: string): RegExp => {
+  let regex = regexCache.get(pattern);
+  if (!regex) {
+    regex = new RegExp(escapeRegExp(pattern), 'g');
+    if (regexCache.size > 100) {
+      const firstKey = regexCache.keys().next().value;
+      if (firstKey) regexCache.delete(firstKey);
+    }
+    regexCache.set(pattern, regex);
+  }
+  return regex;
+};
+
+export const iterativeReplace = (
+    data: string,
+    patternArray: readonly string[],
+    replaceArray: readonly string[]
+): string => {
+  if (patternArray.length !== replaceArray.length) {
+    throw new Error('Pattern and replacement arrays must have equal length');
+  }
+
   let currentData = data;
-  const regexes = patternArray.map(pattern => new RegExp(pattern, 'g')); // Pre-compile regexes
 
   for (let i = patternArray.length - 1; i >= 0; i--) {
-    currentData = currentData.replace(regexes[i]!, replaceArray[i]!);
+    const pattern = patternArray[i]!;
+    const replacement = replaceArray[i]!;
+
+    const regex = getCachedRegex(pattern);
+    regex.lastIndex = 0;
+    currentData = currentData.replace(regex, replacement);
   }
   return currentData;
 };
