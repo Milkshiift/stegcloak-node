@@ -1,4 +1,4 @@
-import StegCloak from "./src/stegcloak.js";
+import StegCloak from "./src/stegcloak.ts";
 
 const stegcloak = new StegCloak(true, false)
 

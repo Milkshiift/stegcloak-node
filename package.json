@@ -1,58 +1,30 @@
 {
   "name": "stegcloak",
-  "keywords": [
-    "cryptography",
-    "steganography",
-    "unicode",
-    "compression",
-    "ramdajs",
-    "steganography-algorithms"
-  ],
-  "version": "1.1.1",
+  "version": "2.0.0",
   "type": "module",
-  "main": "src/stegcloak.js",
-  "engines": {
-    "node": ">=8.0.0"
-  },
-  "scripts": {
-    "build": "bun build.js",
-    "test": "node test.js"
-  },
-  "author": "KuroLabs",
-  "license": "MIT",
-  "homepage": "https://github.com/KuroLabs/stegcloak/blob/master/README.md",
-  "description": "StegCloak is a pure JavaScript steganography module designed in functional programming style, to hide text in plain sight - with key features like encryption and top-notch text compression. It can be used in social media or for any other covert communication.",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/KuroLabs/stegcloak"
-  },
-  "contributors": [
-    {
-      "name": "Jyothishmathi CV",
-      "email": "cvjyothishmathi@gmail.com",
-      "url": "https://github.com/JyothishmathiCV"
-    },
-    {
-      "name": "Kandavel A",
-      "email": "kanduarul@gmail.com",
-      "url": "https://github.com/AK5123"
-    },
-    {
-      "name": "Mohanasundar M",
-      "email": "itsmohanpierce@gmail.com",
-      "url": "https://github.com/mohanpierce99"
+  "main": "./dist/stegcloak.js",
+  "types": "./dist/stegcloak.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/stegcloak.d.ts",
+      "import": "./dist/stegcloak.js"
     }
+  },
+  "files": [
+    "dist"
   ],
+  "scripts": {
+    "build": "bun build.ts",
+    "test": "node test.ts"
+  },
+  "license": "MIT",
   "dependencies": {
-    "lzutf8": "^0.6.3",
-    "rambda": "^9.4.2"
+    "lzutf8": "^0.6.3"
   },
   "devDependencies": {
-    "standard": "^17.1.2"
+    "@types/bun": "latest",
+    "@types/node": "^25.3.0",
+    "typescript": "6.0.0-beta"
   },
-  "standard": {
-    "ignore": [
-      "./dist/"
-    ]
-  }
+  "private": true
 }
