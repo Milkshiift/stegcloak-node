@@ -7,7 +7,6 @@ const result = await Bun.build({
     format: "esm",
     sourcemap: "external",
     minify: true,
-    external: ["lzutf8"],
 });
 
 if (!result.success) {

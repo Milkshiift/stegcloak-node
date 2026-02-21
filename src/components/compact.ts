@@ -1,12 +1,7 @@
 import zlib from 'node:zlib';
-import lzutf8 from 'lzutf8';
 import { iterativeReplace } from './util';
 
-// Discord has a limit of 2000 characters
-// In an encrypted message, you can fit:
-// ~677 chars max with lzutf
-// ~1086 chars max with brotli
-// 60% improvement with brotli
+// You can fit around ~1086 chars with brotli in an encrypted message
 export const compress = (x: string | Buffer): Buffer => {
   return zlib.brotliCompressSync(x, {
     params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 }
@@ -14,15 +9,7 @@ export const compress = (x: string | Buffer): Buffer => {
 };
 
 export const decompress = (x: Buffer | Uint8Array): string => {
-  try {
-    return zlib.brotliDecompressSync(x).toString('utf8');
-  } catch (err) {
-    // Previous version of the code used lzutf8 for compression, hence the fallback
-    return lzutf8.decompress(x, {
-      inputEncoding: 'Buffer',
-      outputEncoding: 'String'
-    });
-  }
+  return zlib.brotliDecompressSync(x).toString('utf8');
 };
 
 // Builds a ranking table and filters the two characters that can be compressed that yield good results
