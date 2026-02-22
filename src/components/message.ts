@@ -110,21 +110,21 @@ export const zwcOperations = (zwc: readonly string[]) => {
   };
 
   const zwcPattern = zwc.join('');
-  const zwcRegex = new RegExp(`[${zwcPattern}]+`);
+  const zwcRegex = new RegExp(`[${zwcPattern}]+`, 'g')
 
   const detach = (str: string): string => {
     if (!str || str.length === 0) {
       throw new Error('Cannot detach from empty string');
     }
 
-    const match = str.match(zwcRegex);
-    if (match && match[0]) {
-      return match[0];
+    const matches = str.match(zwcRegex);
+    if (!matches) {
+      throw new Error(
+          'Invisible stream not detected! Please copy and paste the Stegcloak text sent by the sender.'
+      );
     }
 
-    throw new Error(
-        'Invisible stream not detected! Please copy and paste the Stegcloak text sent by the sender.'
-    );
+    return matches.reduce((a, b) => a.length > b.length ? a : b);
   };
 
   return Object.freeze({
