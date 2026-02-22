@@ -1,160 +1,79 @@
-import crypto from 'node:crypto';
-import { zeroPad, nTobin, binToByte } from './util';
+import { ensureBuffer, PayloadNotFoundError } from './util';
 
-export interface ConcealedData {
-  data: Uint8Array;
-}
+const ZWC = Object.freeze([
+  '\u200B', '\u200C', '\u200D', '\u200E', '\u200F',
+  '\u2060', '\u2062', '\u2063',
+  '\uFE00', '\uFE01', '\uFE02', '\uFE03', '\uFE04', '\uFE05',
+  '\uFE0F', '\uFEFF'
+]);
 
-interface ZwcLookup {
-  binToZwc: readonly string[];
-  zwcToBin: ReadonlyMap<string, string>;
-  zwcToInt: ReadonlyMap<string, number>;
-  zwcSet: ReadonlySet<string>;
-}
+const ZWC_MAP = new Map<string, number>(ZWC.map((char, index) => [char, index]));
+const ZWC_REGEX = new RegExp(`[${ZWC.join('')}]+`, 'g');
 
-const buildLookup = (zwc: readonly string[]): ZwcLookup => {
-  const binToZwc = zwc.slice(0, 4);
-  const zwcToBin = new Map<string, string>();
-  const zwcToInt = new Map<string, number>();
-  const zwcSet = new Set<string>(zwc);
+export const getZWCCharacters = () => ZWC;
 
-  for (let i = 0; i < 4; i++) {
-    const char = zwc[i]!;
-    zwcToBin.set(char, zeroPad(2, nTobin(i)));
-    zwcToInt.set(char, i);
+export const embed = (cover: string, secretStream: string): string => {
+  const words = cover.split(/(\s+)/);
+
+  const spaces = words.filter((_, i) => i % 2 !== 0);
+  const textBlocks = words.filter((_, i) => i % 2 === 0);
+
+  const spacesCount = spaces.length;
+
+  // Fallback: If there are no spaces (single word) or cover is empty,
+  // we cannot interleave. We simply append the invisible stream to the end.
+  if (spacesCount === 0) {
+    return cover + secretStream;
   }
 
-  return Object.freeze({ binToZwc, zwcToBin, zwcToInt, zwcSet });
+  const charsCount = secretStream.length;
+  let result = textBlocks[0];
+  let payloadIndex = 0;
+
+  for (let i = 0; i < spacesCount; i++) {
+    const charsForThisSpace = Math.floor(charsCount / spacesCount) + (i < charsCount % spacesCount ? 1 : 0);
+    const chunk = secretStream.slice(payloadIndex, payloadIndex + charsForThisSpace);
+    payloadIndex += charsForThisSpace;
+
+    result += chunk + spaces[i] + textBlocks[i + 1];
+  }
+
+  return result!;
 };
 
-export const zwcOperations = (zwc: readonly string[]) => {
-  if (zwc.length < 4) {
-    throw new Error('ZWC array must have at least 4 characters');
+export const extract = (cover: string): string => {
+  if (!cover) throw new PayloadNotFoundError();
+
+  const matches = cover.match(ZWC_REGEX);
+
+  if (!matches || matches.length === 0) {
+    throw new PayloadNotFoundError();
   }
 
-  const lookup = buildLookup(zwc);
-  const FORMAT_FLAG = zwc[0]!;
-
-  const _ZWCTobin = (char: string): string => {
-    const result = lookup.zwcToBin.get(char);
-    if (result === undefined) {
-      throw new Error(`Invalid ZWC character: U+${char.charCodeAt(0).toString(16).toUpperCase()}`);
-    }
-    return result;
-  };
-
-  const toConceal = (binaryStr: string): string => {
-    const numPairs = binaryStr.length >>> 1;
-    const chunks = new Array<string>(numPairs + 1);
-    chunks[0] = FORMAT_FLAG;
-
-    for (let i = 0; i < numPairs; i++) {
-      const offset = i << 1;
-      const c1 = binaryStr.charCodeAt(offset);
-      const c2 = binaryStr.charCodeAt(offset + 1);
-
-      const isC1Valid = c1 === 48 || c1 === 49;
-      const isC2Valid = c2 === 48 || c2 === 49;
-
-      if (!isC1Valid || !isC2Valid) {
-        throw new Error(`Invalid binary pair: ${binaryStr.slice(offset, offset + 2)}`);
-      }
-
-      const index = ((c1 & 1) << 1) | (c2 & 1);
-      chunks[i + 1] = lookup.binToZwc[index]!;
-    }
-
-    return chunks.join('');
-  };
-
-  const concealToData = (str: string): ConcealedData => {
-    if (!str || str.length < 2) {
-      throw new Error('Concealed string too short');
-    }
-
-    const payload = str.slice(1);
-    const len = payload.length;
-
-    if (len % 4 !== 0) {
-      // Backwards compatible parsing payload
-      const binParts = new Array<string>(len);
-      for (let i = 0; i < len; i++) {
-        binParts[i] = _ZWCTobin(payload.charAt(i));
-      }
-      return { data: binToByte(binParts.join('')) };
-    }
-
-    const byteLen = len >>> 2;
-    const arr = new Uint8Array(byteLen);
-
-    for (let i = 0; i < byteLen; i++) {
-      const offset = i << 2;
-      const c1 = payload.charAt(offset);
-      const c2 = payload.charAt(offset + 1);
-      const c3 = payload.charAt(offset + 2);
-      const c4 = payload.charAt(offset + 3);
-
-      const n1 = lookup.zwcToInt.get(c1);
-      const n2 = lookup.zwcToInt.get(c2);
-      const n3 = lookup.zwcToInt.get(c3);
-      const n4 = lookup.zwcToInt.get(c4);
-
-      if (n1 === undefined || n2 === undefined || n3 === undefined || n4 === undefined) {
-        _ZWCTobin(n1 === undefined ? c1 : n2 === undefined ? c2 : n3 === undefined ? c3 : c4);
-      }
-
-      arr[i] = (n1! << 6) | (n2! << 4) | (n3! << 2) | n4!;
-    }
-
-    return { data: arr };
-  };
-
-  const zwcPattern = zwc.join('');
-  const zwcRegex = new RegExp(`[${zwcPattern}]+`, 'g')
-
-  const detach = (str: string): string => {
-    if (!str || str.length === 0) {
-      throw new Error('Cannot detach from empty string');
-    }
-
-    const matches = str.match(zwcRegex);
-    if (!matches) {
-      throw new Error(
-          'Invisible stream not detected! Please copy and paste the Stegcloak text sent by the sender.'
-      );
-    }
-
-    return matches.reduce((a, b) => a.length > b.length ? a : b);
-  };
-
-  return Object.freeze({
-    detach,
-    concealToData,
-    toConceal
-  });
+  return matches.join('');
 };
 
-export const embed = (cover: string, secret: string): string => {
-  const words = cover.split(' ');
-  const wordCount = words.length;
+export const conceal = (data: Uint8Array | Buffer): string => {
+  const buf = ensureBuffer(data);
+  const output = new Array(buf.length * 2);
 
-  if (wordCount < 2) {
-    throw new Error('Cover text must have at least two words');
+  for (let i = 0; i < buf.length; i++) {
+    const byte = buf[i]!;
+    output[i * 2]     = ZWC[byte >> 4];       // Top 4 bits
+    output[i * 2 + 1] = ZWC[byte & 0x0F];     // Bottom 4 bits
   }
 
-  const maxTargetIndex = Math.floor(wordCount / 2);
+  return output.join('');
+};
 
-  const targetIndex = maxTargetIndex > 0
-      ? crypto.randomInt(0, maxTargetIndex)
-      : 0;
+export const reveal = (stream: string): Buffer => {
+  const buf = Buffer.alloc(Math.floor(stream.length / 2));
 
-  const insertPosition = targetIndex + 1;
-  const targetWord = words[insertPosition];
-
-  if (targetWord === undefined) {
-    throw new Error('Invalid insertion position calculated');
+  for (let i = 0; i < buf.length; i++) {
+    const high = ZWC_MAP.get(stream[i * 2]!) || 0;
+    const low = ZWC_MAP.get(stream[i * 2 + 1]!) || 0;
+    buf[i] = (high << 4) | low;
   }
 
-  words[insertPosition] = secret + targetWord;
-  return words.join(' ');
+  return buf;
 };
