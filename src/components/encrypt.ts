@@ -1,22 +1,21 @@
 import crypto from 'node:crypto';
-import * as util from "node:util";
-import { DecryptionError } from './util';
+import {DecryptionError} from './util';
+import {hashRaw} from "@node-rs/argon2";
 
 const ALGORITHM = 'chacha20-poly1305';
 export const IV_LENGTH = 12;
 export const KEY_LENGTH = 32;
 export const AUTH_TAG_LENGTH = 16;
 
-const argon = util.promisify(crypto.argon2);
-
 export const deriveKey = async (password: string, salt: Buffer): Promise<Buffer> => {
-  return await argon("argon2id", {
-    message: password,
-    nonce: salt,
+  // TODO: Switch to crypto.argon2 when Electron updates to node 25
+  return await hashRaw(password, {
+    algorithm: 2, // Argon2id
+    salt: salt,
     parallelism: 4,
-    tagLength: KEY_LENGTH,
-    memory: 65536,
-    passes: 3,
+    outputLen: KEY_LENGTH,
+    memoryCost: 65536,
+    timeCost: 3,
   });
 };
 

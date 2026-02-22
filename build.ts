@@ -7,6 +7,7 @@ const result = await Bun.build({
     format: "esm",
     sourcemap: "external",
     minify: true,
+    external: ["@node-rs/argon2"]
 });
 
 if (!result.success) {

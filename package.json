@@ -23,5 +23,8 @@
     "@types/node": "^25.3.0",
     "typescript": "6.0.0-beta"
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@node-rs/argon2": "^2.0.2"
+  }
 }

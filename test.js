@@ -1,4 +1,4 @@
-import StegCloak from "./src/stegcloak";
+import StegCloak from "./dist/stegcloak.js";
 
 const stegcloak = new StegCloak()
 
