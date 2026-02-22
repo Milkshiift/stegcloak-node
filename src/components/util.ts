@@ -2,14 +2,26 @@ export const buffSlice = (x: Uint8Array | Buffer, start: number, end: number = x
   if (start < 0 || end > x.length || start > end) {
     throw new RangeError(`Invalid slice range: [${start}, ${end}] for length ${x.length}`);
   }
-  return Buffer.from(x.slice(start, end));
+  if (Buffer.isBuffer(x)) {
+    return x.subarray(start, end);
+  }
+  return Buffer.from(x.buffer, x.byteOffset + start, end - start);
 };
 
-export const concatBuff: typeof Buffer.concat = Buffer.concat;
+export const concatBuff = Buffer.concat;
 
-export const toBuffer = (data: Uint8Array | number[]): Buffer => Buffer.from(data);
+export const toBuffer = (data: Uint8Array | number[]): Buffer => {
+  if (Buffer.isBuffer(data)) return data;
+  if (data instanceof Uint8Array) {
+    return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+  }
+  return Buffer.from(data);
+};
 
-export const byarr = (x: Buffer | Uint8Array | number[]): Uint8Array => new Uint8Array(x);
+export const byarr = (x: Buffer | Uint8Array | number[]): Uint8Array => {
+  if (x instanceof Uint8Array) return x;
+  return new Uint8Array(x);
+};
 
 export const nTobin = (x: number): string => {
   return (x & 0xFF).toString(2);
@@ -28,11 +40,16 @@ export const zeroPad = (padLength: number, num: string | number): string => {
   return String(num).padStart(padLength, '0');
 };
 
+const BYTE_TO_BIN = new Array<string>(256);
+for (let i = 0; i < 256; i++) {
+  BYTE_TO_BIN[i] = i.toString(2).padStart(8, '0');
+}
+
 export const byteToBin = (arr: Uint8Array | Buffer): string => {
   const len = arr.length;
   const result = new Array<string>(len);
   for (let i = 0; i < len; i++) {
-    result[i] = (arr[i]! >>> 0).toString(2).padStart(8, '0');
+    result[i] = BYTE_TO_BIN[arr[i]!]!;
   }
   return result.join('');
 };
@@ -91,7 +108,6 @@ export const iterativeReplace = (
     const replacement = replaceArray[i]!;
 
     const regex = getCachedRegex(pattern);
-    regex.lastIndex = 0;
     currentData = currentData.replace(regex, replacement);
   }
   return currentData;

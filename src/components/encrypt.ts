@@ -5,22 +5,11 @@ import { toBuffer, concatBuff, buffSlice } from './util';
 // Constants
 // ============================================================================
 
-/** Salt length in bytes */
 const SALT_LENGTH = 8;
-
-/** Initialization vector length in bytes */
 const IV_LENGTH = 16;
-
-/** AES-256 key length in bytes */
 const KEY_LENGTH = 32;
-
-/** PBKDF2 iteration count */
 const PBKDF2_ITERATIONS = 10000;
-
-/** PBKDF2 hash algorithm */
 const PBKDF2_DIGEST = 'sha512';
-
-/** Cipher algorithm */
 const CIPHER_ALGORITHM = 'aes-256-ctr';
 
 // ============================================================================
@@ -42,10 +31,6 @@ interface CryptoPayload {
 // Private Functions
 // ============================================================================
 
-/**
- * Derive key material from password using PBKDF2
- * @returns Buffer containing IV (16 bytes) + Key (32 bytes)
- */
 const _genKey = (password: string, salt: Buffer): Buffer => {
   return crypto.pbkdf2Sync(
       password,
@@ -56,9 +41,6 @@ const _genKey = (password: string, salt: Buffer): Buffer => {
   );
 };
 
-/**
- * Extract encryption parameters from config
- */
 const _extractEncrypt = (config: CryptoConfig, salt: Buffer): CryptoPayload => {
   const data = toBuffer(config.data);
   const password = config.password ?? '';
@@ -71,13 +53,8 @@ const _extractEncrypt = (config: CryptoConfig, salt: Buffer): CryptoPayload => {
   };
 };
 
-/**
- * Extract decryption parameters from encrypted data
- * @throws {Error} If data is too short to be valid
- */
 const _extractDecrypt = (config: CryptoConfig): CryptoPayload => {
   const data = toBuffer(config.data);
-
   const minLength = SALT_LENGTH + 1;
 
   if (data.length < minLength) {
@@ -101,14 +78,6 @@ const _extractDecrypt = (config: CryptoConfig): CryptoPayload => {
 // Public Functions
 // ============================================================================
 
-/**
- * Encrypt data using AES-256-CTR with random salt
- *
- * Output format: [salt (8 bytes)][ciphertext]
- *
- * @param config - Encryption configuration
- * @throws {Error} If data is empty
- */
 export const encrypt = (config: CryptoConfig): Buffer => {
   if (!config.data || config.data.length === 0) {
     throw new Error('Cannot encrypt empty data');
@@ -118,17 +87,9 @@ export const encrypt = (config: CryptoConfig): Buffer => {
   const { iv, key, secret } = _extractEncrypt(config, salt);
 
   const cipher = crypto.createCipheriv(CIPHER_ALGORITHM, key, iv);
-  const ciphertext = concatBuff([cipher.update(secret), cipher.final()]);
-
-  return concatBuff([salt, ciphertext]);
+  return concatBuff([salt, cipher.update(secret), cipher.final()]);
 };
 
-/**
- * Decrypt data encrypted with the encrypt function
- *
- * @param config - Decryption configuration
- * @throws {Error} If data is empty or too short
- */
 export const decrypt = (config: CryptoConfig): Buffer => {
   if (!config.data || config.data.length === 0) {
     throw new Error('Cannot decrypt empty data');

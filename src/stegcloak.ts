@@ -43,13 +43,6 @@ export class StegCloak {
   /**
    * Hide a secret message within cover text
    *
-   * The message is:
-   * 1. Compressed using Brotli
-   * 2. Bit-complemented (simple obfuscation)
-   * 3. Encrypted with AES-256-CTR
-   * 4. Encoded as zero-width characters
-   * 5. Embedded into the cover text
-   *
    * @param message - The secret message to hide (must not be empty)
    * @param password - Encryption password (if omitted, uses empty password)
    * @param cover - Cover text to embed the secret in
@@ -69,46 +62,27 @@ export class StegCloak {
       throw new Error('Message cannot be empty');
     }
 
-    const wordCount = cover.split(' ').length;
-    if (wordCount < 2) {
+    if (!cover.includes(' ')) {
       throw new Error('Cover text must have at least two words');
     }
 
-    // Step 1: Compress the message
     const compressed = compress(message);
-
-    // Step 2: Apply bitwise complement (simple obfuscation layer)
     const complemented = compliment(compressed);
 
-    // Step 3: Encrypt with AES-256-CTR
     const payload = encrypt({
       password,
       data: complemented
     });
 
-    // Step 4: Convert to binary string
     const binaryString = byteToBin(payload);
-
-    // Step 5: Encode as ZWC
     const flaggedStream = zwcOps.toConceal(binaryString);
-
-    // Step 6: Apply run-length compression to ZWC stream
     const compressedStream = huffman.shrink(flaggedStream);
 
-    // Step 7: Embed in cover text
     return embed(cover, compressedStream);
   }
 
   /**
    * Reveal a hidden message from text
-   *
-   * Reverses the hide() process:
-   * 1. Extract zero-width characters from text
-   * 2. Decompress run-length encoding
-   * 3. Decode ZWC to binary
-   * 4. Decrypt with AES-256-CTR
-   * 5. Reverse bit-complement
-   * 6. Decompress with Brotli
    *
    * @param secret - Text containing hidden message
    * @param password - Decryption password
@@ -122,25 +96,17 @@ export class StegCloak {
       throw new Error('Input cannot be empty');
     }
 
-    // Step 1: Extract hidden ZWC characters
     const detached = zwcOps.detach(secret);
-
-    // Step 2: Expand run-length encoding
     const expanded = huffman.expand(detached);
-
-    // Step 3: Decode ZWC to binary data
     const { data } = zwcOps.concealToData(expanded);
 
-    // Step 4: Decrypt
     const decrypted = decrypt({
       password,
       data
     });
 
-    // Step 5: Reverse bit-complement
     const uncomplemented = compliment(decrypted);
 
-    // Step 6: Decompress and return
     return decompress(uncomplemented);
   }
 }

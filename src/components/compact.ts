@@ -21,7 +21,7 @@ export const decompress = (data: Buffer | Uint8Array): string => {
   }
 
   try {
-    const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+    const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
     return zlib.brotliDecompressSync(buffer).toString('utf8');
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -29,12 +29,6 @@ export const decompress = (data: Buffer | Uint8Array): string => {
   }
 };
 
-// Run-Length Optimization
-
-/**
- * Analyze text to find optimal characters for run-length compression
- * Returns two characters that have the most consecutive pair occurrences
- */
 export const findOptimal = (secret: string, characters: readonly string[]): string[] => {
   if (characters.length < 2) {
     throw new Error('Need at least 2 characters to find optimal pair');
@@ -44,11 +38,11 @@ export const findOptimal = (secret: string, characters: readonly string[]): stri
     return [characters[0]!, characters[1]!].sort();
   }
 
-  const runStats = new Map<string, Map<number, number>>();
+  const savingsMap = new Map<string, number>();
   const charSet = new Set(characters);
 
   for (const char of characters) {
-    runStats.set(char, new Map());
+    savingsMap.set(char, 0);
   }
 
   const len = secret.length;
@@ -68,62 +62,23 @@ export const findOptimal = (secret: string, characters: readonly string[]): stri
     }
 
     if (runLength >= 2) {
-      const charMap = runStats.get(char);
-      if (charMap) {
-        for (let groupSize = 2; groupSize <= runLength; groupSize++) {
-          const numGroups = Math.floor(runLength / groupSize);
-          const savings = numGroups * (groupSize - 1);
-          const current = charMap.get(groupSize) ?? 0;
-          charMap.set(groupSize, current + savings);
-        }
-      }
+      const numGroups = Math.floor(runLength / 2);
+      savingsMap.set(char, savingsMap.get(char)! + numGroups);
     }
 
     i += runLength;
   }
 
   const rankings: Array<[string, number]> = [];
-  for (const [char, innerMap] of runStats) {
-    for (const [runLength, savings] of innerMap) {
-      rankings.push([`${char}${runLength}`, savings]);
-    }
+  for (const [char, savings] of savingsMap) {
+    rankings.push([char, savings]);
   }
 
   rankings.sort((a, b) => b[1] - a[1]);
 
-  const selectedChars = new Set<string>();
-  const result: string[] = [];
-
-  for (const [key] of rankings) {
-    if (key.length >= 2 && key.charAt(key.length - 1) === '2') {
-      const char = key.slice(0, -1);
-      if (!selectedChars.has(char)) {
-        selectedChars.add(char);
-        result.push(char);
-        if (result.length === 2) break;
-      }
-    }
-  }
-
-  if (result.length < 2) {
-    for (const char of characters) {
-      if (!selectedChars.has(char)) {
-        result.push(char);
-        if (result.length === 2) break;
-      }
-    }
-  }
-
-  return result.sort();
+  return [rankings[0]![0], rankings[1]![0]].sort();
 };
 
-
-// ZWC Huffman Encoding
-
-/**
- * Create Huffman-like encoding functions for ZWC character pairs
- * Uses 2 additional ZWC characters to represent pairs of repeated characters
- */
 export const zwcHuffMan = (zwc: readonly string[]) => {
   if (zwc.length < 6) {
     throw new Error('ZWC array must have at least 6 characters for Huffman encoding');
@@ -165,9 +120,6 @@ export const zwcHuffMan = (zwc: readonly string[]) => {
     return pair;
   };
 
-  /**
-   * Compress consecutive pairs of identical ZWC characters
-   */
   const shrink = (secret: string): string => {
     if (!secret || secret.length === 0) {
       throw new Error('Cannot shrink empty string');
@@ -178,16 +130,13 @@ export const zwcHuffMan = (zwc: readonly string[]) => {
 
     const compressed = iterativeReplace(
         secret,
-        repeatChars.map(char => char + char),
+        [repeatChars[0]! + repeatChars[0]!, repeatChars[1]! + repeatChars[1]!],
         [z4, z5]
     );
 
     return flag + compressed;
   };
 
-  /**
-   * Expand compressed ZWC string back to original
-   */
   const expand = (secret: string): string => {
     if (!secret || secret.length === 0) {
       throw new Error('Cannot expand empty string');
@@ -200,7 +149,7 @@ export const zwcHuffMan = (zwc: readonly string[]) => {
     return iterativeReplace(
         compressed,
         [z4, z5],
-        [repeatChars[0] + repeatChars[0], repeatChars[1] + repeatChars[1]]
+        [repeatChars[0]! + repeatChars[0]!, repeatChars[1]! + repeatChars[1]!]
     );
   };
 
