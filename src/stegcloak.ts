@@ -1,6 +1,7 @@
 import { deriveKey, encryptWithKey, decryptWithKey } from './components/encrypt';
 import { compress, decompress } from './components/compact';
 import {conceal, reveal, embed, extract, getZWCCharacters, hasPayload} from './components/message';
+export { PayloadNotFoundError, DecryptionError, IntegrityError } from './components/util';
 
 export class StegCloak {
   private keyCache: Map<string, Buffer>;

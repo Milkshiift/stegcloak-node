@@ -1,3 +1,4 @@
+export { PayloadNotFoundError, DecryptionError, IntegrityError } from './components/util';
 export declare class StegCloak {
     private keyCache;
     constructor();
