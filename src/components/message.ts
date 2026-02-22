@@ -12,6 +12,11 @@ const ZWC_REGEX = new RegExp(`[${ZWC.join('')}]+`, 'g');
 
 export const getZWCCharacters = () => ZWC;
 
+export const hasPayload = (text: string): boolean => {
+  if (!text) return false;
+  return text.search(ZWC_REGEX) !== -1;
+};
+
 export const embed = (cover: string, secretStream: string): string => {
   const words = cover.split(/(\s+)/);
 

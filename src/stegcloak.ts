@@ -1,6 +1,6 @@
 import { deriveKey, encryptWithKey, decryptWithKey } from './components/encrypt';
 import { compress, decompress } from './components/compact';
-import { conceal, reveal, embed, extract, getZWCCharacters } from './components/message';
+import {conceal, reveal, embed, extract, getZWCCharacters, hasPayload} from './components/message';
 
 export class StegCloak {
   private keyCache: Map<string, Buffer>;
@@ -55,6 +55,10 @@ export class StegCloak {
     const decompressed = await decompress(decryptedData);
 
     return decompressed.toString('utf8');
+  }
+
+  static isCloaked(text: string): boolean {
+    return hasPayload(text);
   }
 }
 

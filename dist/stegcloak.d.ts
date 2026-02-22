@@ -5,5 +5,6 @@ export declare class StegCloak {
     private getKey;
     hide(message: string, password: string, salt: string, cover: string): Promise<string>;
     reveal(secret: string, password: string, salt: string): Promise<string>;
+    static isCloaked(text: string): boolean;
 }
 export default StegCloak;
